@@ -1,5 +1,7 @@
 package com.polixis.companysearch.service;
 
+import com.polixis.companysearch.dto.CompanyMapper;
+import com.polixis.companysearch.dto.SearchResponse;
 import com.polixis.companysearch.entity.Company;
 import com.polixis.companysearch.entity.SearchQuery;
 import com.polixis.companysearch.repository.CompanyRepository;
@@ -23,32 +25,42 @@ public class CompanySearchService {
     private final CompaniesHouseScraper scraper;
     private final CompanyRepository companyRepository;
     private final SearchQueryRepository searchQueryRepository;
+    private final CompanyMapper companyMapper;
     private final long cacheTtlHours;
 
     public CompanySearchService(
             CompaniesHouseScraper scraper,
             CompanyRepository companyRepository,
             SearchQueryRepository searchQueryRepository,
+            CompanyMapper companyMapper,
             @Value("${cache.ttl-hours}") long cacheTtlHours
     ) {
         this.scraper = scraper;
         this.companyRepository = companyRepository;
         this.searchQueryRepository = searchQueryRepository;
+        this.companyMapper = companyMapper;
         this.cacheTtlHours = cacheTtlHours;
     }
 
     @Transactional
-    public List<Company> search(String query) throws IOException {
+    public SearchResponse search(String query) throws IOException {
 
         String normalizedQuery = normalizeQuery(query);
 
         Optional<SearchQuery> cachedSearch =
                 searchQueryRepository.findByQuery(normalizedQuery);
 
-        if (cachedSearch.isPresent()
-                && isFresh(cachedSearch.get())) {
+        if (cachedSearch.isPresent() && isFresh(cachedSearch.get())) {
 
-            return cachedSearch.get().getCompanies();
+            SearchQuery searchQuery = cachedSearch.get();
+
+            return new SearchResponse(
+                    normalizedQuery,
+                    true,
+                    searchQuery.getFetchedAt(),
+                    searchQuery.getCompanies().size(),
+                    companyMapper.toResponses(searchQuery.getCompanies())
+            );
         }
 
         List<CompanySearchResult> searchResults =
@@ -69,16 +81,24 @@ public class CompanySearchService {
             companies.add(savedCompany);
         }
 
+        LocalDateTime fetchedAt = LocalDateTime.now();
+
         SearchQuery searchQuery =
                 cachedSearch.orElseGet(SearchQuery::new);
 
         searchQuery.setQuery(normalizedQuery);
-        searchQuery.setFetchedAt(LocalDateTime.now());
+        searchQuery.setFetchedAt(fetchedAt);
         searchQuery.setCompanies(companies);
 
         searchQueryRepository.save(searchQuery);
 
-        return companies;
+        return new SearchResponse(
+                normalizedQuery,
+                false,
+                fetchedAt,
+                companies.size(),
+                companyMapper.toResponses(companies)
+        );
     }
 
     private Company saveOrUpdateCompany(Company scrapedCompany) {
@@ -132,4 +152,3 @@ public class CompanySearchService {
                 .toLowerCase(Locale.ROOT);
     }
 }
-
