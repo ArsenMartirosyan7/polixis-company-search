@@ -24,11 +24,17 @@ public class CompanySearchController {
 
     @GetMapping("/search")
     public ResponseEntity<SearchResponse> search(
-            @RequestParam String query
+            @RequestParam String query,
+            @RequestParam(
+                    defaultValue = "false"
+            ) boolean forceRefresh
     ) throws IOException {
 
         SearchResponse response =
-                companySearchService.search(query);
+                companySearchService.search(
+                        query,
+                        forceRefresh
+                );
 
         return ResponseEntity.ok(response);
     }

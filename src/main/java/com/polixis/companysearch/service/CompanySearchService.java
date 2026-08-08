@@ -43,14 +43,19 @@ public class CompanySearchService {
     }
 
     @Transactional
-    public SearchResponse search(String query) throws IOException {
+    public SearchResponse search(
+            String query,
+            boolean forceRefresh
+    ) throws IOException {
 
         String normalizedQuery = normalizeQuery(query);
 
         Optional<SearchQuery> cachedSearch =
                 searchQueryRepository.findByQuery(normalizedQuery);
 
-        if (cachedSearch.isPresent() && isFresh(cachedSearch.get())) {
+        if (!forceRefresh
+                && cachedSearch.isPresent()
+                && isFresh(cachedSearch.get())) {
 
             SearchQuery searchQuery = cachedSearch.get();
 
@@ -59,7 +64,9 @@ public class CompanySearchService {
                     true,
                     searchQuery.getFetchedAt(),
                     searchQuery.getCompanies().size(),
-                    companyMapper.toResponses(searchQuery.getCompanies())
+                    companyMapper.toResponses(
+                            searchQuery.getCompanies()
+                    )
             );
         }
 
@@ -101,7 +108,9 @@ public class CompanySearchService {
         );
     }
 
-    private Company saveOrUpdateCompany(Company scrapedCompany) {
+    private Company saveOrUpdateCompany(
+            Company scrapedCompany
+    ) {
 
         Optional<Company> existing =
                 companyRepository.findByCompanyNumber(
@@ -117,8 +126,12 @@ public class CompanySearchService {
         company.setName(scrapedCompany.getName());
         company.setStatus(scrapedCompany.getStatus());
         company.setCompanyType(scrapedCompany.getCompanyType());
-        company.setIncorporatedOn(scrapedCompany.getIncorporatedOn());
-        company.setDissolvedOn(scrapedCompany.getDissolvedOn());
+        company.setIncorporatedOn(
+                scrapedCompany.getIncorporatedOn()
+        );
+        company.setDissolvedOn(
+                scrapedCompany.getDissolvedOn()
+        );
         company.setRegisteredAddress(
                 scrapedCompany.getRegisteredAddress()
         );
@@ -137,7 +150,9 @@ public class CompanySearchService {
                 searchQuery.getFetchedAt()
                         .plusHours(cacheTtlHours);
 
-        return expirationTime.isAfter(LocalDateTime.now());
+        return expirationTime.isAfter(
+                LocalDateTime.now()
+        );
     }
 
     private String normalizeQuery(String query) {
