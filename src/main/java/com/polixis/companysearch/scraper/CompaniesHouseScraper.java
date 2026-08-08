@@ -1,6 +1,7 @@
 package com.polixis.companysearch.scraper;
 
 import com.polixis.companysearch.config.ScraperProperties;
+import com.polixis.companysearch.entity.Company;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -18,6 +19,8 @@ import java.util.Map;
 public class CompaniesHouseScraper {
 
     private final ScraperProperties properties;
+    private final CompanyOverviewParser overviewParser =
+            new CompanyOverviewParser();
 
     public CompaniesHouseScraper(ScraperProperties properties) {
         this.properties = properties;
@@ -68,6 +71,38 @@ public class CompaniesHouseScraper {
         }
 
         return new ArrayList<>(results.values());
+    }
+
+    public Company fetchCompanyOverview(
+            CompanySearchResult searchResult
+    ) throws IOException {
+
+        waitBeforeRequest();
+
+        String url =
+                properties.getBaseUrl()
+                        + searchResult.companyPath();
+
+        Document document = Jsoup.connect(url)
+                .userAgent(properties.getUserAgent())
+                .timeout(10_000)
+                .get();
+
+        return overviewParser.parse(document, searchResult);
+    }
+
+    private void waitBeforeRequest() {
+
+        try {
+            Thread.sleep(properties.getDelayMs());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    "Interrupted while waiting between Companies House requests",
+                    exception
+            );
+        }
     }
 
     private String extractCompanyNumber(String path) {
