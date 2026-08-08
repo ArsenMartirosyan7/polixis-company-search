@@ -2,6 +2,7 @@ package com.polixis.companysearch.scraper;
 
 import com.polixis.companysearch.config.ScraperProperties;
 import com.polixis.companysearch.entity.Company;
+import com.polixis.companysearch.entity.Officer;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -19,14 +20,19 @@ import java.util.Map;
 public class CompaniesHouseScraper {
 
     private final ScraperProperties properties;
+
     private final CompanyOverviewParser overviewParser =
             new CompanyOverviewParser();
+
+    private final OfficerParser officerParser =
+            new OfficerParser();
 
     public CompaniesHouseScraper(ScraperProperties properties) {
         this.properties = properties;
     }
 
-    public List<CompanySearchResult> searchCompanies(String query) throws IOException {
+    public List<CompanySearchResult> searchCompanies(String query)
+            throws IOException {
 
         String encodedQuery = URLEncoder.encode(
                 query,
@@ -43,13 +49,17 @@ public class CompaniesHouseScraper {
                 .timeout(10_000)
                 .get();
 
-        Map<String, CompanySearchResult> results = new LinkedHashMap<>();
+        Map<String, CompanySearchResult> results =
+                new LinkedHashMap<>();
 
-        for (Element link : document.select("a[href^=/company/]")) {
+        for (Element link :
+                document.select("a[href^=/company/]")) {
 
             String path = link.attr("href");
 
-            String companyNumber = extractCompanyNumber(path);
+            String companyNumber =
+                    extractCompanyNumber(path);
+
             String name = link.text().trim();
 
             if (companyNumber == null || name.isBlank()) {
@@ -65,7 +75,8 @@ public class CompaniesHouseScraper {
                     )
             );
 
-            if (results.size() >= properties.getMaxCompanies()) {
+            if (results.size()
+                    >= properties.getMaxCompanies()) {
                 break;
             }
         }
@@ -83,12 +94,41 @@ public class CompaniesHouseScraper {
                 properties.getBaseUrl()
                         + searchResult.companyPath();
 
-        Document document = Jsoup.connect(url)
+        Document document = fetchDocument(url);
+
+        return overviewParser.parse(
+                document,
+                searchResult
+        );
+    }
+
+    public List<Officer> fetchOfficers(
+            Company company
+    ) throws IOException {
+
+        waitBeforeRequest();
+
+        String url =
+                properties.getBaseUrl()
+                        + "/company/"
+                        + company.getCompanyNumber()
+                        + "/officers";
+
+        Document document = fetchDocument(url);
+
+        return officerParser.parse(
+                document,
+                company
+        );
+    }
+
+    private Document fetchDocument(String url)
+            throws IOException {
+
+        return Jsoup.connect(url)
                 .userAgent(properties.getUserAgent())
                 .timeout(10_000)
                 .get();
-
-        return overviewParser.parse(document, searchResult);
     }
 
     private void waitBeforeRequest() {
@@ -96,6 +136,7 @@ public class CompaniesHouseScraper {
         try {
             Thread.sleep(properties.getDelayMs());
         } catch (InterruptedException exception) {
+
             Thread.currentThread().interrupt();
 
             throw new IllegalStateException(
@@ -113,14 +154,19 @@ public class CompaniesHouseScraper {
             return null;
         }
 
-        String remaining = path.substring(prefix.length());
+        String remaining =
+                path.substring(prefix.length());
 
-        int slashIndex = remaining.indexOf('/');
+        int slashIndex =
+                remaining.indexOf('/');
 
         if (slashIndex >= 0) {
-            remaining = remaining.substring(0, slashIndex);
+            remaining =
+                    remaining.substring(0, slashIndex);
         }
 
-        return remaining.isBlank() ? null : remaining;
+        return remaining.isBlank()
+                ? null
+                : remaining;
     }
 }
