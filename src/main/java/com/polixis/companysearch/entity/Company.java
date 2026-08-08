@@ -1,7 +1,8 @@
 package com.polixis.companysearch.entity;
 
 import jakarta.persistence.*;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.time.LocalDate;
 
 @Entity
@@ -17,6 +18,13 @@ public class Company {
 
     @Column(nullable = false)
     private String name;
+
+    @OneToMany(
+        mappedBy = "company",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+	)
+    private List<Officer> officers = new ArrayList<>();
 
     private String status;
 
@@ -90,5 +98,19 @@ public class Company {
 
     public void setRegisteredAddress(String registeredAddress) {
         this.registeredAddress = registeredAddress;
+    }
+
+    public List<Officer> getOfficers() {
+    return officers;
+    }
+
+    public void addOfficer(Officer officer) {
+        officers.add(officer);
+        officer.setCompany(this);
+    }
+
+    public void removeOfficer(Officer officer) {
+        officers.remove(officer);
+        officer.setCompany(null);
     }
 }
